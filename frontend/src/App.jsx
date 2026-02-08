@@ -1,90 +1,159 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Editor from "@monaco-editor/react";
-import { FolderCode, GitBranch, FileCode, Play } from 'lucide-react';
+import { FolderCode, GitBranch, FileCode, Play, FolderOpen } from 'lucide-react';
+import axios from 'axios';
 import './App.css';
 
 function App() {
-  // TODO : 1. 가상의 파일 데이터 (나중에 백엔드 API로 교체될 부분)
-  const files = {
-    'Main.java': {
-      content: 'public class Main {\n  public static void main(String[] args) {\n    System.out.println("Hello Codin-Nator!");\n  }\n}',
-      language: 'java'
-    },
-    'Preprocessing.py': {
-      content: 'import pandas as pd\n\ndef process_data(file_path):\n    print(f"Processing {file_path}...")',
-      language: 'python'
+  const [rootPath, setRootPath] = useState(''); // 프로젝트 절대 경로 상태
+  const [fileList, setFileList] = useState([]);  // 백엔드에서 받은 파일 트리
+  const [selectedFile, setSelectedFile] = useState(null); // 선택된 파일의 상대 경로
+  const [code, setCode] = useState('// 프로젝트를 불러오면 코드가 여기에 표시됩니다.');
+  const [language, setLanguage] = useState('javascript');
+  const [commitMessage, setCommitMessage] = useState('');
+
+
+  // 1. 프로젝트 불러오기 (백엔드에 root_path 전송)
+  const loadProject = async () => {
+    try {
+      const response = await axios.post('http://127.0.0.1:8000/api/files/list/', {
+        root_path: rootPath
+      });
+      setFileList(response.data);
+    } catch (error) {
+      console.error("로딩 실패:", error);
+      alert("경로가 올바르지 않거나 서버 연결에 실패했습니다.");
     }
   };
 
-  const [selectedFile, setSelectedFile] = useState('Main.java');
-  const [code, setCode] = useState(files['Main.java'].content);
+  // 2. 파일 클릭 시 내용 가져오기
+  const handleFileClick = async (dirPath, fileName) => {
+    // 상대 경로 생성 (예: "src/main.py")
+    const relativePath = dirPath === "root" ? fileName : `${dirPath}/${fileName}`;
+    
+    try {
+      const response = await axios.post('http://127.0.0.1:8000/api/files/detail/', {
+        path: relativePath
+      });
+      
+      setSelectedFile(relativePath);
+      setCode(response.data.content);
+      
+      // 확장자에 따른 언어 설정
+      if (fileName.endsWith('.java')) setLanguage('java');
+      else if (fileName.endsWith('.py')) setLanguage('python');
+      else if (fileName.endsWith('.js') || fileName.endsWith('.jsx')) setLanguage('javascript');
+      else setLanguage('plaintext');
 
-  // 파일 클릭 시 변경 핸들러
-  const handleFileClick = (fileName) => {
-    setSelectedFile(fileName);
-    setCode(files[fileName].content);
+    } catch (error) {
+      alert("파일 내용을 읽어오지 못했습니다.");
+    }
   };
-
+  // 3. git 기능 
+  const handleGitAction = async () => {
+  if (!commitMessage.trim()) {
+    alert("커밋 메시지를 입력해주세요.");
+    return;
+  }
+  
+  try {
+    const response = await axios.post('http://127.0.0.1:8000/api/git_app/commit/', {
+      message: commitMessage
+    });
+    alert(response.data.message);
+    setCommitMessage(''); // 성공 시 입력창 초기화
+  } catch (error) {
+    console.error("Git 오류:", error);
+    alert("Git 작업 중 오류 발생: " + (error.response?.data?.error || "서버 연결 확인 필요"));
+  }
+};
   return (
     <div className="ide-container">
       {/* 1. 사이드바 */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          <FolderCode size={16} style={{display:'inline', marginRight:'5px'}}/> 
+          <FolderOpen size={16} style={{marginRight:'5px'}}/>
+          Path Setup
+        </div>
+        
+        {/* 경로 입력 섹션 */}
+        <div className="path-input-section" style={{padding: '10px'}}>
+          <input 
+            type="text" 
+            className="input-box" 
+            placeholder="Absolute Path (C:\...)" 
+            value={rootPath}
+            onChange={(e) => setRootPath(e.target.value)}
+          />
+          <button className="btn-primary" onClick={loadProject} style={{marginTop: '5px', width: '100%'}}>
+            Load Project
+          </button>
+        </div>
+
+        <div className="sidebar-header" style={{borderTop: '1px solid #3c3c3c', marginTop: '10px'}}>
+          <FolderCode size={16} style={{marginRight:'5px'}}/> 
           Project Explorer
         </div>
         
         <ul className="file-list">
-          {Object.keys(files).map((fileName) => (
-            <li 
-              key={fileName}
-              className={`file-item ${selectedFile === fileName ? 'active' : ''}`}
-              onClick={() => handleFileClick(fileName)}
-              style={selectedFile === fileName ? {color: '#fff', backgroundColor: '#37373d'} : {}}
-            >
-              <FileCode 
-                size={16} 
-                color={fileName.endsWith('.java') ? "#dcb67f" : "#4d9375"} 
-              /> 
-              {fileName}
-            </li>
+          {fileList.map((dir, idx) => (
+            <div key={idx}>
+              {/* 디렉토리 이름 표시 (선택 사항) */}
+              <li className="dir-item" style={{fontSize: '0.75rem', color: '#858585', padding: '5px 10px'}}>
+                {dir.directory}
+              </li>
+              {dir.files.map((file) => {
+                const fullRelativePath = dir.directory === "root" ? file : `${dir.directory}/${file}`;
+                return (
+                  <li 
+                    key={fullRelativePath}
+                    className={`file-item ${selectedFile === fullRelativePath ? 'active' : ''}`}
+                    onClick={() => handleFileClick(dir.directory, file)}
+                  >
+                    <FileCode 
+                      size={16} 
+                      color={file.endsWith('.java') ? "#dcb67f" : "#4d9375"} 
+                    /> 
+                    {file}
+                  </li>
+                );
+              })}
+            </div>
           ))}
         </ul>
 
         <div className="git-section">
-          <div style={{marginBottom: '10px', fontSize:'0.85rem', fontWeight:'bold'}}>
-            <GitBranch size={16} style={{display:'inline', verticalAlign:'middle'}}/> Source Control
-          </div>
-          <input 
-            type="text" 
-            placeholder="커밋 메시지 (Message)" 
-            className="input-box"
-          />
-          <button className="btn-primary">
-            Commit & Push
-          </button>
-        </div>
+  <div style={{marginBottom: '10px', fontSize:'0.85rem', fontWeight:'bold'}}>
+    <GitBranch size={16} style={{display:'inline', verticalAlign:'middle'}}/> Source Control
+  </div>
+  
+  {/* 1. value와 onChange 연결 */}
+  <input 
+    type="text" 
+    placeholder="Message" 
+    className="input-box" 
+    value={commitMessage}
+    onChange={(e) => setCommitMessage(e.target.value)}
+  />
+  
+  {/* 2. onClick 핸들러 연결 */}
+  <button className="btn-primary" onClick={handleGitAction}>
+    Commit & Push
+  </button>
+</div>
       </aside>
 
       {/* 2. 메인 에디터 */}
       <main className="editor-area">
         <div className="editor-tabs">
-          {/* 현재 선택된 파일에 따라 탭 활성화 표시 */}
-          {Object.keys(files).map((fileName) => (
-            <div 
-              key={fileName} 
-              className={`tab ${selectedFile === fileName ? 'active' : ''}`}
-              onClick={() => handleFileClick(fileName)}
-            >
-              {fileName}
+          {selectedFile && (
+            <div className="tab active">
+              {selectedFile.split('/').pop()}
             </div>
-          ))}
+          )}
           
           <div className="tabs-right-section">
-            <button 
-              className="ai-run-btn"
-              onClick={() => alert(`${selectedFile} AI 분석 서버 가동!`)}
-            >
+            <button className="ai-run-btn" onClick={() => alert(`${selectedFile} AI 분석 서버 가동!`)}>
               <Play size={28} fill="currentColor" /> AI RUN
             </button>
           </div>
@@ -93,25 +162,16 @@ function App() {
         <div className="editor-wrapper">
           <Editor 
             height="100%" 
-            width="100%"
             theme="vs-dark" 
-            // 선택된 파일의 확장자에 따라 언어 자동 설정
-            language={files[selectedFile].language} 
+            language={language} 
             value={code} 
             onChange={(val) => setCode(val)} 
             options={{
               automaticLayout: true,
-              fontSize: 32,             // 24px도 작다! 32px로 파격 상향 ㅋ
-              lineHeight: 48,           // 글자가 커진 만큼 줄 간격도 넉넉하게 (1.5배)
-              fontWeight: "600",        // 글자를 좀 더 도톰하게 해서 눈에 확 띄게
-              letterSpacing: 1,         // 자간을 살짝 벌려서 가독성 확보
-              minimap: { 
-                enabled: false 
-              },
-              cursorWidth: 4,           // 커서 두께도 키워서 어디 있는지 바로 보이게
-              scrollBeyondLastLine: false,
+              fontSize: 32,
+              fontWeight: "600",
+              minimap: { enabled: false },
               wordWrap: "on",
-              padding: { top: 30, bottom: 30 } // 위아래 여백도 넉넉히
             }}
           />
         </div>
