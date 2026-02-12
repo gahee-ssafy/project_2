@@ -2,8 +2,10 @@ from config.urls import path
 from . import views
 
 urlpatterns = [
-    # FastAPI에서 DJANGO_URL로 설정한 경로와 일치해야 함
+    # fronted에서 요청을 받는 엔드포인트
     path('results/', views.receive_analysis),
+    # FastAPI에서 콜백을 받을 엔드포인트
+    path('callback/', views.receive_analysis_callback),
     # frontend에서 분석 결과 리스트를 요청하는 엔드포인트
     path('list/', views.get_analysis_list),
 ]
