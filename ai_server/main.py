@@ -33,34 +33,69 @@ async def analyze_file(data: dict, background_tasks: BackgroundTasks):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"요청 수신 실패: {str(e)}")
-    
+
+def build_analysis_prompt(filename, code_content):
+    return f"""
+## [시스템 역할]
+당신은 분산 아키텍처 환경의 AI 분석 엔진입니다. 당신의 목적은 소스 코드를 분석하여 '사과(데이터)'를 생성하고, 이를 비동기 콜백 선로를 통해 Django '바구니(DB)'에 적재하는 것입니다.
+
+## [워크플로우 및 통신 규약]
+1. 분석: 코드의 구조와 비동기 통신 적합성을 검토합니다.
+2. 전송: 분석 결과는 POST /api/ai/callback/ 엔드포인트를 통해 전달됩니다.
+3. 조회: 사용자는 GET /api/ai/result/에서 당신의 결과를 폴링합니다.
+
+## [입출력 예시 (Few-shot)]
+### 예시 1
+**입력**: public void save() {{ repository.save(data); }}
+**출력**:
+[분석 결과: 저장 로직]
+- 구조 분석: 표준적인 JPA 저장 방식입니다.
+- 통신 관점: 이 데이터는 현재 /callback 경로를 통해 DB 바구니로 이동할 준비가 되었습니다.
+
+### 예시 2
+**입력**: @GetMapping("/status") public String getStatus() {{ return "OK"; }}
+**출력**:
+[분석 결과: 상태 확인 엔드포인트]
+- 구조 분석: 단순 상태 반환 컨트롤러입니다.
+- 통신 관점: /result 창구에서 수행하는 폴링 메커니즘과 유사한 단순 조회 로직입니다.
+
+## [실제 분석 작업 시작]
+**파일명**: {filename}
+**소스 코드**:
+{code_content}
+
+## [최종 지시]
+1. 위 예시의 [분석 결과] 형식을 엄격히 준수하십시오.
+2. 서론, 결론, 가이드라인 복사 없이 오직 '분석 결과' 텍스트만 출력하십시오.
+3. 분석 결과는 즉시 /callback 엔드포인트로 전송될 것이므로 데이터의 무결성을 유지하십시오.
+"""
+
 # AI 처리 함수
 async def perform_ai_process(filename: str, code_content: str):
     try:
-        # [Step 1] Gemini AI에게 파일 내용 전달 및 분석
-        print(f"[DEBUG] Gemini API 호출 시도...")
-
+        # [Step 1] 프롬프트 빌드-LLM 호출-수신
+        prompt = build_analysis_prompt(filename, code_content)
         response = client.models.generate_content(
             model="gemini-3-flash-preview",
-            # [TODO] 프롬프팅 수정 예정
-            contents=f"다음 파일({filename})의 소스 코드를 분석해줘:\n\n{code_content}"
-        )
-
+            contents=prompt)
+        
         analysis_result = response.text
+
         print(f"[DEBUG] Gemini 분석 결과 수신 완료 (길이: {len(analysis_result)}자)")
         # [TODO] ChromaDB에 파일 내용과 분석 결과 적재
  
         # [Step 2] django 서버에 콜백 전송
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         await send_to_django_callback({
             "filename": filename,
             "analysis": analysis_result,
             "code_content": code_content,
-            "timestamp": current_time
+            "status": "COMPLETED"
         })
         
     except Exception as e:
-        print(f"[BACKGROUND ERROR] {str(e)}")
+        import traceback
+        print(f"[BACKGROUND ERROR] {traceback.format_exc()}")
+
 
     
 @app.get("/ai/results")

@@ -1,12 +1,18 @@
-# 환경 변수 및 비밀키 보호
+# Database & Local Data
+*.sqlite3
+db.sqlite3-journal
+
+# Migration & Environments
+venv/
 .env
 
-# 파이썬 캐시 및 가상환경
+# Python Caches
 __pycache__/
 *.py[cod]
-venv/
-.venv/
-env/
+
+# AI/ML Specific
+.ipynb_checkpoints/
+*.log
 
 # IDE 설정 파일 (VS Code)
 .vscode/

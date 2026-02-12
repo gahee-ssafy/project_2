@@ -9,6 +9,8 @@ class AnalysisResult(models.Model):
     code_content = models.TextField(blank=True, null=True)
     # 생성 시각 (자동 기록)
     created_at = models.DateTimeField(auto_now_add=True)
+    # 상태 필드 (예: processing, completed)
+    status = models.CharField(max_length=50, default='processing')
 
     def __str__(self):
         return f"{self.filename} - {self.created_at}"

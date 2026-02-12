@@ -3,6 +3,8 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 import httpx
 from .models import AnalysisResult
+import urllib.parse
+
 
 # 프론트엔드의 요청을 받는 함수 
 @csrf_exempt
@@ -33,6 +35,8 @@ def receive_analysis(request):
         굳이 저장을 하지 않는 것 같아요. 
         """
 
+# FastAPI로부터 콜백을 받는다. 
+# DB에 저장하는 함수
 @csrf_exempt
 def receive_analysis_callback(request):
     if request.method == 'POST':
@@ -55,6 +59,43 @@ def receive_analysis_callback(request):
             return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
     return JsonResponse({"message": "POST 요청만 가능합니다."}, status=405)
+
+
+
+# 프론트엔드가 비동기로 조회하는 함수 
+def get_analysis_result(request):
+    if request.method == 'GET':
+        raw_filename = request.GET.get('filename')
+        
+        try :
+            filename = urllib.parse.unquote(raw_filename)
+            # 1. DB에서 해당 파일명에 대한 "최신" 분석 결과 조회
+            result = AnalysisResult.objects.filter(filename=filename).order_by('-id').first()
+            
+            is_final = (result.status == 'COMPLETED') 
+
+            # 왜 analysis가 아니라. result.analsysis 인가요? 
+            # result는 바구니, analysis는 바구니 안에 든 사과
+            # result는 객체, analysis는 필드이다. 
+            if result:
+                return JsonResponse({
+                    "status": "success" if is_final else "processing",
+                    "is_final": is_final, # 이 값이 True면 브라우저가 세션을 확정함
+                    "analysis": result.analysis, 
+                    "filename": result.filename,
+                    "id": result.id
+                })
+            else:
+                # 아직 DB에 데이터가 없으면 '진행 중' 상태 반환
+                return JsonResponse({"status": "processing"}, status=200)
+            
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
+    
+    return JsonResponse({"message": "GET 요청만 가능합니다."}, status=405)
+
+    
+
 
 def get_analysis_list(request):
     """DB에 저장된 모든 분석 결과를 프론트엔드로 전송"""
