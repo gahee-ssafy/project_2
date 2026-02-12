@@ -25,9 +25,11 @@ def file_list(request):
     file_tree = []
     try:
         # node_modules 등 무거운 폴더는 탐색 제외 권장
-        exclude = {'.git', 'venv', '__pycache__', 'node_modules'}
+        exclude = {'.git', 'venv', '__pycache__', 'node_modules', '.env'}
         for root, dirs, files in os.walk(root_path):
             dirs[:] = [d for d in dirs if d not in exclude]
+            # 2. [추가] 파일 필터링 - 여기서 .env가 제거됩니다.
+            files = [f for f in files if f not in exclude]
             
             relative_path = os.path.relpath(root, root_path)
             file_tree.append({

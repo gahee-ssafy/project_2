@@ -186,3 +186,129 @@
   display: flex;
   align-items: center;
 }
+
+/* --- 기존 레이아웃 유지 및 확장 --- */
+
+.ide-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  background-color: #1e1e1e;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+/* 사이드바 (기존 유지) */
+.sidebar {
+  width: 400px;
+  min-width: 400px;
+  max-width: 400px;
+  flex-shrink: 0;
+  background-color: #252526;
+  border-right: 1px solid #333;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* 에디터 영역: 패널 열림 대응을 위해 transition 추가 */
+.editor-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* AI 패널 가동 시 에디터 영역의 크기 조절 (필요 시) */
+.editor-area.panel-open {
+  /* 패널이 열려도 에디터가 찌그러지지 않도록 최소폭 유지 */
+  min-width: 400px;
+}
+
+/* --- AI 결과 사이드 패널 (신규 공정) --- */
+
+.ai-panel {
+  width: 500px; /* 분석 내용이 길 수 있으므로 500px 확보 */
+  min-width: 500px;
+  background-color: #252526;
+  border-left: 1px solid #333;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  animation: slideIn 0.3s ease-out; /* 등장 애니메이션 */
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.panel-header {
+  height: 65px; /* 에디터 탭 높이와 일치시켜 기계적 대칭 확보 */
+  padding: 0 25px;
+  background-color: #2d2d2d;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #333;
+  color: #4caf50; /* AI 테마 색상 */
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.4rem;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #858585;
+  cursor: pointer;
+  padding: 5px;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #ff5f56; /* 닫기 버튼 강조 */
+}
+
+.panel-content {
+  flex: 1;
+  padding: 30px;
+  overflow-y: auto;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+}
+/* ####################[AI 버튼]############################# */
+/* AI 답변 텍스트 스타일링 */
+.ai-text {
+  white-space: pre-wrap; /* 줄바꿈 유지 */
+  word-wrap: break-word;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 1.3rem;
+  line-height: 1.8;
+  margin: 0;
+}
+
+/* 로딩 상태 버튼 스타일 */
+.ai-run-btn.loading {
+  border-color: #858585;
+  color: #858585;
+  cursor: wait;
+  pointer-events: none;
+}
+
+/* 스크롤바 디자인 (AI 패널 전용) */
+.panel-content::-webkit-scrollbar {
+  width: 8px;
+}
+.panel-content::-webkit-scrollbar-thumb {
+  background: #333;
+}
