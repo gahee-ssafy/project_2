@@ -5,25 +5,30 @@
 ## 아키텍처 (Architecture)
 
 - **Frontend**: React (Polling 2s)
-- **Backend (Storage)**: Django (SQLite/PostgreSQL)
+- **Backend (Storage)**: Django (SQLite3)
 - **AI Engine**: FastAPI (gemini-3-flash-preview)
 
 ## 가동 순서 (Execution SOP)
 
 ### 1. Backend (Django)
+
 ```
 cd backend
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver 8000
 ```
+
 ### 2. AI Engine (FastAPI)
+
 ```
 cd ai_server
 pip install -r requirements.txt
 uvicorn main:app --reload --port 9000
 ```
+
 ### 3. frontend (React)
+
 ```
 cd frontend
 npm install

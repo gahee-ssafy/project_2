@@ -29,7 +29,7 @@ def git_status(request):
 @api_view(['POST'])
 def git_commit_push(request):
     """
-    변경 사항을 커밋하고 푸시합니다.
+    변경 사항을 에드그리고 커밋하고 푸시합니다.
     """
     root_path = current_context.get("root_path")
     message = request.data.get('message', 'Auto-commit by Codin-Nator')
